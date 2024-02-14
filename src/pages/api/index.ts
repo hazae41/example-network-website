@@ -4,6 +4,7 @@ import { Base16 } from "@hazae41/base16";
 import { Writable } from "@hazae41/binary";
 import { Abi, ZeroHexString } from "@hazae41/cubane";
 import { Keccak256 } from "@hazae41/keccak256";
+import { NextApiRequest, NextApiResponse } from "next";
 
 const nonces = new Set<ZeroHexString>()
 
@@ -55,21 +56,21 @@ async function verifyOrThrow(nonce: ZeroHexString, amount: bigint) {
   return value
 }
 
-export async function GET(request: Request) {
-  const nonce = request.headers.get("x-net-nonce")
+export default async function GET(request: NextApiRequest, response: NextApiResponse) {
+  const nonce = request.headers["x-net-nonce"]
 
   if (typeof nonce !== "string")
-    return new Response("Bad Request", { status: 400 })
+    return response.status(400).send("Bad Request")
   if (!ZeroHexString.is(nonce))
-    return new Response("Bad Request", { status: 400 })
+    return response.status(400).send("Bad Request")
 
   if (nonces.has(nonce))
-    return new Response("Unauthorized", { status: 401 })
+    return response.status(401).send("Unauthorized")
 
   const amount = await verifyOrThrow(nonce, price)
 
   if (amount == null)
-    return new Response("Unauthorized", { status: 401 })
+    return response.status(401).send("Unauthorized")
 
   /**
    * Save the nonce
@@ -77,5 +78,5 @@ export async function GET(request: Request) {
   nonces.add(nonce)
   console.log(nonce)
 
-  return new Response(`You just sent ${amount} wei`, { status: 200 })
+  return response.status(200).send(`You just sent ${amount} wei`)
 }
