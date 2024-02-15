@@ -8,7 +8,9 @@ import { NextApiRequest, NextApiResponse } from "next";
 
 const maxUint256BigInt = (2n ** 256n) - 1n
 
-function getMixinOrThrow(chainIdNumber: number, contractZeroHex: ZeroHexString, receiverZeroHex: ZeroHexString) {
+async function initOrThrow(chainIdNumber: number, contractZeroHex: ZeroHexString, receiverZeroHex: ZeroHexString) {
+  Keccak256.set(await Keccak256.fromMorax())
+
   const Mixin = Abi.Tuple.create(Abi.Uint64, Abi.Address, Abi.Address, Abi.Uint256)
 
   const chainIdBase16 = chainIdNumber.toString(16)
@@ -26,19 +28,13 @@ function getMixinOrThrow(chainIdNumber: number, contractZeroHex: ZeroHexString, 
   return { mixinBytes }
 }
 
-async function initOrThrow() {
-  Keccak256.set(await Keccak256.fromMorax())
+const chainIdNumber = 1
+const contractZeroHex = "0xB57ee0797C3fc0205714a577c02F7205bB89dF30"
+const receiverZeroHex = "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4"
 
-  const chainIdNumber = 1
-  const contractZeroHex = "0xB57ee0797C3fc0205714a577c02F7205bB89dF30"
-  const receiverZeroHex = "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4"
+const init = initOrThrow(chainIdNumber, contractZeroHex, receiverZeroHex)
 
-  const { mixinBytes } = getMixinOrThrow(chainIdNumber, contractZeroHex, receiverZeroHex)
-
-  return { mixinBytes }
-}
-
-const init = initOrThrow()
+init.catch(() => { })
 
 const allSecretsBase16 = new Set<string>()
 
@@ -103,5 +99,5 @@ export default async function GET(request: NextApiRequest, response: NextApiResp
   if (amount < 10n ** 5n)
     return response.status(401).send("Unauthorized")
 
-  return response.status(200).send(`You just sent ${amount} wei`)
+  return response.status(200).send(`You just sent ${amount} wei to ${receiverZeroHex}`)
 }
