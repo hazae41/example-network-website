@@ -13,10 +13,10 @@ export default function Home() {
       return
 
     const onMessage = async (event: MessageEvent) => {
-      const nonce = event.data
+      const data = JSON.stringify(event.data)
 
       const headers = new Headers()
-      headers.set("x-net-nonce", nonce)
+      headers.set("x-net-secrets", data)
 
       const response = await fetch("/api", { headers })
       const text = await response.text()

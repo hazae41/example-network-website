@@ -9,62 +9,115 @@
 
 "use strict";
 __webpack_require__.r(__webpack_exports__);
+/* harmony export */ __webpack_require__.d(__webpack_exports__, {
+/* harmony export */   Secret: () => (/* binding */ Secret)
+/* harmony export */ });
 /* harmony import */ var _hazae41_symbol_dispose_polyfill__WEBPACK_IMPORTED_MODULE_0__ = __webpack_require__(/*! @hazae41/symbol-dispose-polyfill */ "./node_modules/@hazae41/symbol-dispose-polyfill/dist/esm/index.mjs");
-/* harmony import */ var _hazae41_base16__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! @hazae41/base16 */ "./node_modules/@hazae41/base16/dist/esm/src/mods/base16/adapter.mjs");
-/* harmony import */ var _hazae41_binary__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! @hazae41/binary */ "./node_modules/@hazae41/binary/dist/esm/mods/binary/writable.mjs");
+/* harmony import */ var _hazae41_base16__WEBPACK_IMPORTED_MODULE_4__ = __webpack_require__(/*! @hazae41/base16 */ "./node_modules/@hazae41/base16/dist/esm/src/mods/base16/adapter.mjs");
+/* harmony import */ var _hazae41_binary__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! @hazae41/binary */ "./node_modules/@hazae41/binary/dist/esm/mods/binary/writable.mjs");
 /* harmony import */ var _hazae41_cubane__WEBPACK_IMPORTED_MODULE_1__ = __webpack_require__(/*! @hazae41/cubane */ "./node_modules/@hazae41/cubane/dist/esm/src/mods/abi/types/tuple/tuple.mjs");
 /* harmony import */ var _hazae41_cubane__WEBPACK_IMPORTED_MODULE_2__ = __webpack_require__(/*! @hazae41/cubane */ "./node_modules/@hazae41/cubane/dist/esm/src/mods/abi/types/uint/uint.mjs");
 /* harmony import */ var _hazae41_cubane__WEBPACK_IMPORTED_MODULE_3__ = __webpack_require__(/*! @hazae41/cubane */ "./node_modules/@hazae41/cubane/dist/esm/src/mods/abi/types/address/address.mjs");
-/* harmony import */ var _hazae41_cubane__WEBPACK_IMPORTED_MODULE_8__ = __webpack_require__(/*! @hazae41/cubane */ "./node_modules/@hazae41/cubane/dist/esm/src/mods/types/zerohex/index.mjs");
-/* harmony import */ var _hazae41_keccak256__WEBPACK_IMPORTED_MODULE_5__ = __webpack_require__(/*! @hazae41/keccak256 */ "./node_modules/@hazae41/keccak256/dist/esm/src/mods/keccak256/adapter.mjs");
+/* harmony import */ var _hazae41_keccak256__WEBPACK_IMPORTED_MODULE_6__ = __webpack_require__(/*! @hazae41/keccak256 */ "./node_modules/@hazae41/keccak256/dist/esm/src/mods/keccak256/adapter.mjs");
 /* harmony import */ var _hazae41_keccak256__WEBPACK_IMPORTED_MODULE_7__ = __webpack_require__(/*! @hazae41/keccak256 */ "./node_modules/@hazae41/keccak256/dist/esm/src/mods/keccak256/morax.mjs");
 
 
 
 
 
-const nonces = new Set();
-const address = "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4";
-const chainId = 1;
-const price = 10n ** 5n;
-function getOffsetOrThrow(address, chainId) {
-    const struct = _hazae41_cubane__WEBPACK_IMPORTED_MODULE_1__.Tuple.create(_hazae41_cubane__WEBPACK_IMPORTED_MODULE_2__.Uint64, _hazae41_cubane__WEBPACK_IMPORTED_MODULE_3__.Address);
-    const abi = struct.from([
-        chainId,
-        address
+const maxUint256BigInt = 2n ** 256n - 1n;
+var Secret;
+(function(Secret) {
+    function sortLowToHigh(a, b) {
+        return a.valueBigInt < b.valueBigInt ? -1 : 1;
+    }
+    Secret.sortLowToHigh = sortLowToHigh;
+})(Secret || (Secret = {}));
+function getMixinOrThrow(chainIdNumber, contractZeroHex, receiverZeroHex) {
+    const Mixin = _hazae41_cubane__WEBPACK_IMPORTED_MODULE_1__.Tuple.create(_hazae41_cubane__WEBPACK_IMPORTED_MODULE_2__.Uint64, _hazae41_cubane__WEBPACK_IMPORTED_MODULE_3__.Address, _hazae41_cubane__WEBPACK_IMPORTED_MODULE_3__.Address, _hazae41_cubane__WEBPACK_IMPORTED_MODULE_2__.Uint256);
+    const chainIdBase16 = chainIdNumber.toString(16);
+    const chainIdBytes = _hazae41_base16__WEBPACK_IMPORTED_MODULE_4__.get().padStartAndDecodeOrThrow(chainIdBase16).copyAndDispose();
+    const contractBase16 = contractZeroHex.slice(2);
+    const contractBytes = _hazae41_base16__WEBPACK_IMPORTED_MODULE_4__.get().padStartAndDecodeOrThrow(contractBase16).copyAndDispose();
+    const receiverBase16 = receiverZeroHex.slice(2);
+    const receiverBytes = _hazae41_base16__WEBPACK_IMPORTED_MODULE_4__.get().padStartAndDecodeOrThrow(receiverBase16).copyAndDispose();
+    const mixinAbi = Mixin.from([
+        chainIdBytes,
+        contractBytes,
+        receiverBytes,
+        new Uint8Array(32)
     ]);
-    const bytes = _hazae41_binary__WEBPACK_IMPORTED_MODULE_4__.Writable.writeToBytesOrThrow(abi);
-    const memory = _hazae41_keccak256__WEBPACK_IMPORTED_MODULE_5__.get().hashOrThrow(bytes);
-    const hex = _hazae41_base16__WEBPACK_IMPORTED_MODULE_6__.get().encodeOrThrow(memory);
-    return BigInt("0x".concat(hex));
-}
-async function initOrThrow() {
-    _hazae41_keccak256__WEBPACK_IMPORTED_MODULE_5__.set(await _hazae41_keccak256__WEBPACK_IMPORTED_MODULE_7__.fromMorax());
-    /**
-   * Compute the offset
-   */ const offset = getOffsetOrThrow(address, chainId);
+    const mixinBytes = _hazae41_binary__WEBPACK_IMPORTED_MODULE_5__.Writable.writeToBytesOrThrow(mixinAbi);
     return {
-        offset
+        mixinBytes
     };
 }
-async function generateOrThrow() {
-    const { offset } = await initOrThrow();
-    while(true){
-        const nonceBytes = crypto.getRandomValues(new Uint8Array(32));
-        const nonceZeroHex = _hazae41_cubane__WEBPACK_IMPORTED_MODULE_8__.ZeroHexString.from(_hazae41_base16__WEBPACK_IMPORTED_MODULE_6__.get().encodeOrThrow(nonceBytes));
-        if (nonces.has(nonceZeroHex)) continue;
-        const memory = _hazae41_keccak256__WEBPACK_IMPORTED_MODULE_5__.get().hashOrThrow(nonceBytes);
-        const hex = _hazae41_base16__WEBPACK_IMPORTED_MODULE_6__.get().encodeOrThrow(memory);
-        const hash = BigInt("0x".concat(hex));
-        const value = (2n ** 256n - 1n) / ((offset + hash) % 2n ** 256n);
-        if (value < price) continue;
-        nonces.add(nonceZeroHex);
-        return nonceZeroHex;
-    }
+async function initOrThrow() {
+    _hazae41_keccak256__WEBPACK_IMPORTED_MODULE_6__.set(await _hazae41_keccak256__WEBPACK_IMPORTED_MODULE_7__.fromMorax());
+    const chainIdNumber = 1;
+    const contractZeroHex = "0xB57ee0797C3fc0205714a577c02F7205bB89dF30";
+    const receiverZeroHex = "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4";
+    const { mixinBytes } = getMixinOrThrow(chainIdNumber, contractZeroHex, receiverZeroHex);
+    return {
+        mixinBytes
+    };
 }
-self.addEventListener("message", async (event)=>{
-    self.postMessage(await generateOrThrow());
-});
+const init = initOrThrow();
+async function generateOrThrow() {
+    const { mixinBytes } = await init;
+    const secrets = new Array();
+    const priceBigInt = 10n ** 5n;
+    const maxCountNumber = 10;
+    const maxCountBigInt = BigInt(maxCountNumber);
+    const minValueBigInt = priceBigInt / maxCountBigInt;
+    const mixinOffset = mixinBytes.length - 32;
+    const secretBytes = new Uint8Array(32);
+    let totalBigInt = 0n;
+    while(totalBigInt < priceBigInt){
+        /**
+     * Generate a secret
+     */ crypto.getRandomValues(secretBytes);
+        /**
+     * Generate a proof of the secret
+     */ const proofBytes = _hazae41_keccak256__WEBPACK_IMPORTED_MODULE_6__.get().hashOrThrow(secretBytes).copyAndDispose();
+        /**
+     * Mix the proof with the public stuff
+     */ mixinBytes.set(proofBytes, mixinOffset);
+        /**
+     * Compute the divisor
+     */ const divisorBytes = _hazae41_keccak256__WEBPACK_IMPORTED_MODULE_6__.get().hashOrThrow(mixinBytes).copyAndDispose();
+        const divisorBase16 = _hazae41_base16__WEBPACK_IMPORTED_MODULE_4__.get().encodeOrThrow(divisorBytes);
+        const divisorBigInt = BigInt("0x".concat(divisorBase16));
+        /**
+     * Compute the value
+     */ const valueBigInt = maxUint256BigInt / divisorBigInt;
+        if (valueBigInt < minValueBigInt) continue;
+        if (secrets.length === maxCountNumber) {
+            /**
+       * Skip if the value is too small
+       */ if (valueBigInt < secrets[0].valueBigInt) continue;
+            /**
+       * Replace the smallest secret
+       */ totalBigInt -= secrets[0].valueBigInt;
+            const secretBase16 = _hazae41_base16__WEBPACK_IMPORTED_MODULE_4__.get().encodeOrThrow(secretBytes);
+            secrets[0] = {
+                secretBase16,
+                valueBigInt
+            };
+        } else {
+            const secretBase16 = _hazae41_base16__WEBPACK_IMPORTED_MODULE_4__.get().encodeOrThrow(secretBytes);
+            secrets.push({
+                secretBase16,
+                valueBigInt
+            });
+        }
+        secrets.sort(Secret.sortLowToHigh);
+        totalBigInt += valueBigInt;
+        continue;
+    }
+    return secrets.map((x)=>x.secretBase16);
+}
+self.addEventListener("message", async ()=>self.postMessage(await generateOrThrow()));
 
 
 ;
@@ -11858,7 +11911,7 @@ if (typeof Symbol.asyncDispose !== "symbol")
 /******/ 	
 /******/ 	/* webpack/runtime/getFullHash */
 /******/ 	(() => {
-/******/ 		__webpack_require__.h = () => ("f738a87422ceb556bf22")
+/******/ 		__webpack_require__.h = () => ("29bff8e7d6bd360442d8")
 /******/ 	})();
 /******/ 	
 /******/ 	/* webpack/runtime/global */

@@ -6,77 +6,102 @@ import { Abi, ZeroHexString } from "@hazae41/cubane";
 import { Keccak256 } from "@hazae41/keccak256";
 import { NextApiRequest, NextApiResponse } from "next";
 
-const nonces = new Set<ZeroHexString>()
+const maxUint256BigInt = (2n ** 256n) - 1n
 
-const address = "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4"
-const chainId = 1
+function getMixinOrThrow(chainIdNumber: number, contractZeroHex: ZeroHexString, receiverZeroHex: ZeroHexString) {
+  const Mixin = Abi.Tuple.create(Abi.Uint64, Abi.Address, Abi.Address, Abi.Uint256)
 
-const price = 10n ** 5n
+  const chainIdBase16 = chainIdNumber.toString(16)
+  const chainIdBytes = Base16.get().padStartAndDecodeOrThrow(chainIdBase16).copyAndDispose()
 
-function getOffsetOrThrow(address: ZeroHexString, chainId: number) {
-  const struct = Abi.Tuple.create(Abi.Uint64, Abi.Address)
+  const contractBase16 = contractZeroHex.slice(2)
+  const contractBytes = Base16.get().padStartAndDecodeOrThrow(contractBase16).copyAndDispose()
 
-  const abi = struct.from([chainId, address])
-  const bytes = Writable.writeToBytesOrThrow(abi)
+  const receiverBase16 = receiverZeroHex.slice(2)
+  const receiverBytes = Base16.get().padStartAndDecodeOrThrow(receiverBase16).copyAndDispose()
 
-  const memory = Keccak256.get().hashOrThrow(bytes)
-  const hex = Base16.get().encodeOrThrow(memory)
+  const mixinAbi = Mixin.from([chainIdBytes, contractBytes, receiverBytes, new Uint8Array(32)])
+  const mixinBytes = Writable.writeToBytesOrThrow(mixinAbi)
 
-  return BigInt(`0x${hex}`)
+  return { mixinBytes }
 }
 
 async function initOrThrow() {
   Keccak256.set(await Keccak256.fromMorax())
 
-  /**
-   * Compute the offset
-   */
-  const offset = getOffsetOrThrow(address, chainId)
+  const chainIdNumber = 1
+  const contractZeroHex = "0xB57ee0797C3fc0205714a577c02F7205bB89dF30"
+  const receiverZeroHex = "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4"
 
-  return { offset }
+  const { mixinBytes } = getMixinOrThrow(chainIdNumber, contractZeroHex, receiverZeroHex)
+
+  return { mixinBytes }
 }
 
 const init = initOrThrow()
 
-async function verifyOrThrow(nonce: ZeroHexString, amount: bigint) {
-  const { offset } = await init
+const allSecretsBase16 = new Set<string>()
 
-  const bytes = Base16.get().padStartAndDecodeOrThrow(nonce.slice(2))
+async function verifyOrThrow(secretsBase16: string[]) {
+  const { mixinBytes } = await init
 
-  const memory = Keccak256.get().hashOrThrow(bytes)
-  const hex = Base16.get().encodeOrThrow(memory)
+  let totalBigInt = 0n
 
-  const hash = BigInt(`0x${hex}`)
+  for (const secretBase16 of secretsBase16) {
+    if (allSecretsBase16.has(secretBase16))
+      continue
 
-  const value = (((2n ** 256n) - 1n) / ((offset + hash) % (2n ** 256n)))
+    /**
+     * Decode the secret
+     */
+    const secretBytes = Base16.get().padStartAndDecodeOrThrow(secretBase16)
 
-  if (value < amount)
-    return undefined
+    /**
+     * Generate a proof of the secret
+     */
+    const proofBytes = Keccak256.get().hashOrThrow(secretBytes).copyAndDispose()
 
-  return value
+    /**
+     * Mix the proof with the public stuff
+     */
+    mixinBytes.set(proofBytes, mixinBytes.length - 32)
+
+    /**
+     * Compute the divisor
+     */
+    const divisorBytes = Keccak256.get().hashOrThrow(mixinBytes).copyAndDispose()
+    const divisorBase16 = Base16.get().encodeOrThrow(divisorBytes)
+    const divisorBigInt = BigInt(`0x${divisorBase16}`)
+
+    /**
+     * Compute the value
+     */
+    const valueBigInt = maxUint256BigInt / divisorBigInt
+
+    allSecretsBase16.add(secretBase16)
+    totalBigInt += valueBigInt
+  }
+
+  return totalBigInt
 }
 
 export default async function GET(request: NextApiRequest, response: NextApiResponse) {
-  const nonce = request.headers["x-net-nonce"]
+  const data = request.headers["x-net-secrets"]
 
-  if (typeof nonce !== "string")
-    return response.status(400).send("Bad Request")
-  if (!ZeroHexString.is(nonce))
+  if (typeof data !== "string")
     return response.status(400).send("Bad Request")
 
-  if (nonces.has(nonce))
+  const secrets = JSON.parse(data)
+
+  if (!Array.isArray(secrets))
+    return response.status(400).send("Bad Request")
+  if (secrets.length > 10)
+    return response.status(400).send("Bad Request")
+
+  const amount = await verifyOrThrow(secrets)
+
+  if (amount < 10n ** 5n)
     return response.status(401).send("Unauthorized")
-
-  const amount = await verifyOrThrow(nonce, price)
-
-  if (amount == null)
-    return response.status(401).send("Unauthorized")
-
-  /**
-   * Save the nonce
-   */
-  nonces.add(nonce)
-  console.log(nonce)
 
   return response.status(200).send(`You just sent ${amount} wei`)
 }

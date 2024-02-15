@@ -1,65 +1,130 @@
-import { } from "@hazae41/symbol-dispose-polyfill";
+import "@hazae41/symbol-dispose-polyfill";
 
 import { Base16 } from "@hazae41/base16";
 import { Writable } from "@hazae41/binary";
 import { Abi, ZeroHexString } from "@hazae41/cubane";
 import { Keccak256 } from "@hazae41/keccak256";
 
-const nonces = new Set()
+const maxUint256BigInt = (2n ** 256n) - 1n
 
-const address = "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4"
-const chainId = 1
+export interface Secret {
+  readonly secretBase16: string,
+  readonly valueBigInt: bigint
+}
 
-const price = 10n ** 5n
+export namespace Secret {
 
-function getOffsetOrThrow(address: ZeroHexString, chainId: number) {
-  const struct = Abi.Tuple.create(Abi.Uint64, Abi.Address)
+  export function sortLowToHigh(a: Secret, b: Secret) {
+    return a.valueBigInt < b.valueBigInt ? -1 : 1
+  }
 
-  const abi = struct.from([chainId, address])
-  const bytes = Writable.writeToBytesOrThrow(abi)
+}
 
-  const memory = Keccak256.get().hashOrThrow(bytes)
-  const hex = Base16.get().encodeOrThrow(memory)
+function getMixinOrThrow(chainIdNumber: number, contractZeroHex: ZeroHexString, receiverZeroHex: ZeroHexString) {
+  const Mixin = Abi.Tuple.create(Abi.Uint64, Abi.Address, Abi.Address, Abi.Uint256)
 
-  return BigInt(`0x${hex}`)
+  const chainIdBase16 = chainIdNumber.toString(16)
+  const chainIdBytes = Base16.get().padStartAndDecodeOrThrow(chainIdBase16).copyAndDispose()
+
+  const contractBase16 = contractZeroHex.slice(2)
+  const contractBytes = Base16.get().padStartAndDecodeOrThrow(contractBase16).copyAndDispose()
+
+  const receiverBase16 = receiverZeroHex.slice(2)
+  const receiverBytes = Base16.get().padStartAndDecodeOrThrow(receiverBase16).copyAndDispose()
+
+  const mixinAbi = Mixin.from([chainIdBytes, contractBytes, receiverBytes, new Uint8Array(32)])
+  const mixinBytes = Writable.writeToBytesOrThrow(mixinAbi)
+
+  return { mixinBytes }
 }
 
 async function initOrThrow() {
   Keccak256.set(await Keccak256.fromMorax())
 
-  /**
-   * Compute the offset
-   */
-  const offset = getOffsetOrThrow(address, chainId)
+  const chainIdNumber = 1
+  const contractZeroHex = "0xB57ee0797C3fc0205714a577c02F7205bB89dF30"
+  const receiverZeroHex = "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4"
 
-  return { offset }
+  const { mixinBytes } = getMixinOrThrow(chainIdNumber, contractZeroHex, receiverZeroHex)
+
+  return { mixinBytes }
 }
+
+const init = initOrThrow()
 
 async function generateOrThrow() {
-  const { offset } = await initOrThrow()
+  const { mixinBytes } = await init
+  const secrets = new Array<Secret>()
 
-  while (true) {
-    const nonceBytes = crypto.getRandomValues(new Uint8Array(32))
-    const nonceZeroHex = ZeroHexString.from(Base16.get().encodeOrThrow(nonceBytes))
+  const priceBigInt = 10n ** 5n
 
-    if (nonces.has(nonceZeroHex))
+  const maxCountNumber = 10
+  const maxCountBigInt = BigInt(maxCountNumber)
+  const minValueBigInt = priceBigInt / maxCountBigInt
+
+  const mixinOffset = mixinBytes.length - 32
+
+  const secretBytes = new Uint8Array(32)
+
+  let totalBigInt = 0n
+
+  while (totalBigInt < priceBigInt) {
+    /**
+     * Generate a secret
+     */
+    crypto.getRandomValues(secretBytes)
+
+    /**
+     * Generate a proof of the secret
+     */
+    const proofBytes = Keccak256.get().hashOrThrow(secretBytes).copyAndDispose()
+
+    /**
+     * Mix the proof with the public stuff
+     */
+    mixinBytes.set(proofBytes, mixinOffset)
+
+    /**
+     * Compute the divisor
+     */
+    const divisorBytes = Keccak256.get().hashOrThrow(mixinBytes).copyAndDispose()
+    const divisorBase16 = Base16.get().encodeOrThrow(divisorBytes)
+    const divisorBigInt = BigInt(`0x${divisorBase16}`)
+
+    /**
+     * Compute the value
+     */
+    const valueBigInt = maxUint256BigInt / divisorBigInt
+
+    if (valueBigInt < minValueBigInt)
       continue
 
-    const memory = Keccak256.get().hashOrThrow(nonceBytes)
-    const hex = Base16.get().encodeOrThrow(memory)
+    if (secrets.length === maxCountNumber) {
+      /**
+       * Skip if the value is too small
+       */
+      if (valueBigInt < secrets[0].valueBigInt)
+        continue
 
-    const hash = BigInt(`0x${hex}`)
+      /**
+       * Replace the smallest secret
+       */
+      totalBigInt -= secrets[0].valueBigInt
 
-    const value = (((2n ** 256n) - 1n) / ((offset + hash) % (2n ** 256n)))
+      const secretBase16 = Base16.get().encodeOrThrow(secretBytes)
+      secrets[0] = { secretBase16, valueBigInt }
+    } else {
+      const secretBase16 = Base16.get().encodeOrThrow(secretBytes)
+      secrets.push({ secretBase16, valueBigInt })
+    }
 
-    if (value < price)
-      continue
+    secrets.sort(Secret.sortLowToHigh)
+    totalBigInt += valueBigInt
 
-    nonces.add(nonceZeroHex)
-    return nonceZeroHex
+    continue
   }
+
+  return secrets.map(x => x.secretBase16)
 }
 
-self.addEventListener("message", async (event) => {
-  self.postMessage(await generateOrThrow())
-})
+self.addEventListener("message", async () => self.postMessage(await generateOrThrow()))
