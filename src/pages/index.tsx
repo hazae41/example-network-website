@@ -16,17 +16,28 @@ export default function Home() {
     if (loading)
       return
 
+    const start = Date.now()
+
     const onMessage = async (event: MessageEvent) => {
+      const end = Date.now()
+
       const data = JSON.stringify(event.data)
 
       const headers = new Headers()
       headers.set("x-net-secrets", data)
 
       const response = await fetch("/api", { headers })
-      const text = await response.text()
+
+      if (!response.ok) {
+        setLoading(false)
+        setMessages(x => ["Error", ...x])
+        return
+      }
+
+      const message = `You just sent ${await response.text()} wei in ${end - start}ms`
 
       setLoading(false)
-      setMessages(x => [text, ...x])
+      setMessages(x => [message, ...x])
     }
 
     worker.addEventListener("message", onMessage, { once: true })

@@ -71,5 +71,5 @@ export default async function GET(request: NextApiRequest, response: NextApiResp
   if (amount < (10n ** 5n))
     return response.status(401).send("Unauthorized")
 
-  return response.status(200).send(`You just sent ${amount} wei to ${receiverZeroHex}`)
+  return response.status(200).send(amount.toString())
 }
