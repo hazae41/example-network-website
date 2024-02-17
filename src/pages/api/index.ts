@@ -1,85 +1,57 @@
 import "@hazae41/symbol-dispose-polyfill";
 
-import { Base16 } from "@hazae41/base16";
-import { Writable } from "@hazae41/binary";
-import { Abi, ZeroHexString } from "@hazae41/cubane";
-import { Keccak256 } from "@hazae41/keccak256";
+import { ZeroHexString } from "@hazae41/cubane";
+import { NetworkMixin, base16_decode_mixed, base16_encode_lower, initBundledOnce } from "@hazae41/network-bundle";
 import { NextApiRequest, NextApiResponse } from "next";
 
-const maxUint256BigInt = (2n ** 256n) - 1n
+const secretBase16Set = new Set<string>()
 
 async function initOrThrow(chainIdNumber: number, contractZeroHex: ZeroHexString, receiverZeroHex: ZeroHexString) {
-  Keccak256.set(await Keccak256.fromMorax())
+  await initBundledOnce()
 
-  const Mixin = Abi.Tuple.create(Abi.Uint64, Abi.Address, Abi.Address, Abi.Uint256)
+  const chainIdBase16 = chainIdNumber.toString(16).padStart(64, "0")
+  const chainIdMemory = base16_decode_mixed(chainIdBase16)
 
-  const chainIdBase16 = chainIdNumber.toString(16)
-  const chainIdBytes = Base16.get().padStartAndDecodeOrThrow(chainIdBase16).copyAndDispose()
+  const contractBase16 = contractZeroHex.slice(2).padStart(64, "0")
+  const contractMemory = base16_decode_mixed(contractBase16)
 
-  const contractBase16 = contractZeroHex.slice(2)
-  const contractBytes = Base16.get().padStartAndDecodeOrThrow(contractBase16).copyAndDispose()
+  const receiverBase16 = receiverZeroHex.slice(2).padStart(64, "0")
+  const receiverMemory = base16_decode_mixed(receiverBase16)
 
-  const receiverBase16 = receiverZeroHex.slice(2)
-  const receiverBytes = Base16.get().padStartAndDecodeOrThrow(receiverBase16).copyAndDispose()
+  const mixinStruct = new NetworkMixin(chainIdMemory, contractMemory, receiverMemory)
 
-  const mixinAbi = Mixin.from([chainIdBytes, contractBytes, receiverBytes, new Uint8Array(32)])
-  const mixinBytes = Writable.writeToBytesOrThrow(mixinAbi)
+  return { mixinStruct }
+}
 
-  return { mixinBytes }
+async function verifyOrThrow(secretBase16Array: string[]) {
+  const { mixinStruct } = await init
+
+  let secretsBase16 = ""
+
+  for (const secretBase16 of secretBase16Array) {
+    if (secretBase16Set.has(secretBase16))
+      continue
+    secretBase16Set.add(secretBase16)
+    secretsBase16 += secretBase16
+  }
+
+  const secretsMemory = base16_decode_mixed(secretsBase16)
+
+  const totalMemory = mixinStruct.verify_secrets(secretsMemory)
+  const totalBase16 = base16_encode_lower(totalMemory)
+  const totalZeroHex = `0x${totalBase16}`
+  const totalBigInt = BigInt(totalZeroHex)
+
+  return totalBigInt
 }
 
 const chainIdNumber = 1
-const contractZeroHex = "0xB57ee0797C3fc0205714a577c02F7205bB89dF30"
-const receiverZeroHex = "0x5B38Da6a701c568545dCfcB03FcB875f56beddC4"
+const contractZeroHex = "0xFf61BB11819455d58944A83e44b87E80CFC19eA2"
+const receiverZeroHex = "0x39dfd20386F5d17eBa42763606B8c704FcDd1c1D"
 
 const init = initOrThrow(chainIdNumber, contractZeroHex, receiverZeroHex)
 
 init.catch(() => { })
-
-const allSecretsBase16 = new Set<string>()
-
-async function verifyOrThrow(secretsBase16: string[]) {
-  const { mixinBytes } = await init
-
-  let totalBigInt = 0n
-
-  for (const secretBase16 of secretsBase16) {
-    if (allSecretsBase16.has(secretBase16))
-      continue
-
-    /**
-     * Decode the secret
-     */
-    const secretBytes = Base16.get().padStartAndDecodeOrThrow(secretBase16)
-
-    /**
-     * Generate a proof of the secret
-     */
-    const proofBytes = Keccak256.get().hashOrThrow(secretBytes).copyAndDispose()
-
-    /**
-     * Mix the proof with the public stuff
-     */
-    mixinBytes.set(proofBytes, mixinBytes.length - 32)
-
-    /**
-     * Compute the divisor
-     */
-    const divisorBytes = Keccak256.get().hashOrThrow(mixinBytes).copyAndDispose()
-    const divisorBase16 = Base16.get().encodeOrThrow(divisorBytes)
-    const divisorBigInt = BigInt(`0x${divisorBase16}`)
-
-    /**
-     * Compute the value
-     */
-    const valueBigInt = maxUint256BigInt / divisorBigInt
-
-    allSecretsBase16.add(secretBase16)
-    totalBigInt += valueBigInt
-  }
-
-  return totalBigInt
-}
 
 export default async function GET(request: NextApiRequest, response: NextApiResponse) {
   const data = request.headers["x-net-secrets"]
@@ -96,7 +68,7 @@ export default async function GET(request: NextApiRequest, response: NextApiResp
 
   const amount = await verifyOrThrow(secrets)
 
-  if (amount < 10n ** 5n)
+  if (amount < (10n ** 5n))
     return response.status(401).send("Unauthorized")
 
   return response.status(200).send(`You just sent ${amount} wei to ${receiverZeroHex}`)

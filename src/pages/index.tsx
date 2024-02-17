@@ -4,12 +4,16 @@ export default function Home() {
   const [worker, setWorker] = useState<Worker>()
   const [loading, setLoading] = useState(false)
 
+  const [messages, setMessages] = useState<string[]>([])
+
   useEffect(() => {
     setWorker(new Worker("/worker.js"))
   }, [])
 
   const onClick = useCallback(async () => {
     if (worker == null)
+      return
+    if (loading)
       return
 
     const onMessage = async (event: MessageEvent) => {
@@ -22,19 +26,22 @@ export default function Home() {
       const text = await response.text()
 
       setLoading(false)
-
-      alert(text)
+      setMessages(x => [text, ...x])
     }
 
     worker.addEventListener("message", onMessage, { once: true })
     worker.postMessage(undefined)
 
     setLoading(true)
-  }, [worker])
+  }, [loading, worker])
 
-  return <button onClick={onClick}>
-    {loading
-      ? "Loading..."
-      : "Generate"}
-  </button>
+  return <>
+    <button onClick={onClick}>
+      {loading
+        ? "Loading..."
+        : "Generate"}
+    </button>
+    {messages.map((message, index) =>
+      <div key={index}>{message}</div>)}
+  </>
 }
