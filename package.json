@@ -9,11 +9,11 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@hazae41/base16": "^1.0.16",
+    "@hazae41/base16": "^1.0.17",
     "@hazae41/binary": "^1.3.4",
     "@hazae41/cubane": "^0.1.14",
     "@hazae41/keccak256": "^1.0.8",
-    "@hazae41/network-bundle": "^1.0.1",
+    "@hazae41/network-bundle": "^1.1.0",
     "@hazae41/symbol-dispose-polyfill": "^1.0.2",
     "next": "14.1.0",
     "react": "^18",
@@ -23,12 +23,12 @@
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
-    "autoprefixer": "^10.0.1",
+    "autoprefixer": "^10.4.17",
     "eslint": "^8",
     "eslint-config-next": "14.1.0",
     "postcss": "^8",
-    "tailwindcss": "^3.3.0",
+    "tailwindcss": "^3.4.1",
     "typescript": "^5",
-    "webpack": "^5.90.1"
+    "webpack": "^5.90.3"
   }
 }

@@ -21,6 +21,7 @@ export default function Home() {
     const onMessage = async (event: MessageEvent) => {
       const end = Date.now()
 
+      console.log(event.data)
       const data = JSON.stringify(event.data)
 
       const headers = new Headers()

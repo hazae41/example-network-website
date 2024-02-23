@@ -1,57 +1,54 @@
 import "@hazae41/symbol-dispose-polyfill";
 
-import { ZeroHexString } from "@hazae41/cubane";
-import { NetworkMixin, base16_decode_mixed, base16_encode_lower, initBundledOnce } from "@hazae41/network-bundle";
+import { NetworkMixin, base16_decode_mixed, base16_encode_lower, initBundledOnce, keccak256 } from "@hazae41/network-bundle";
 import { NextApiRequest, NextApiResponse } from "next";
 
-const secretBase16Set = new Set<string>()
+await initBundledOnce()
 
-async function initOrThrow(chainIdNumber: number, contractZeroHex: ZeroHexString, receiverZeroHex: ZeroHexString) {
-  await initBundledOnce()
+let allSecretZeroHexSet = new Set<string>()
 
+let preNonceBigInt = BigInt(Date.now()) / (1000n * 60n)
+let preNonceBase16 = preNonceBigInt.toString(16).padStart(64, "0")
+let preNonceMemory = base16_decode_mixed(preNonceBase16)
+
+async function verifyOrThrow(secretZeroHexArray: string[]) {
+  const chainIdNumber = 100
   const chainIdBase16 = chainIdNumber.toString(16).padStart(64, "0")
   const chainIdMemory = base16_decode_mixed(chainIdBase16)
 
+  const contractZeroHex = "0xF1eC047cbd662607BBDE9Badd572cf0A23E1130B"
   const contractBase16 = contractZeroHex.slice(2).padStart(64, "0")
   const contractMemory = base16_decode_mixed(contractBase16)
 
+  const receiverZeroHex = "0xFF4BdfEbbf877627E02515B60B709F3Faf899884"
   const receiverBase16 = receiverZeroHex.slice(2).padStart(64, "0")
   const receiverMemory = base16_decode_mixed(receiverBase16)
 
-  const mixinStruct = new NetworkMixin(chainIdMemory, contractMemory, receiverMemory)
+  const currentPreNonceBigInt = BigInt(Date.now()) / (1000n * 60n)
 
-  return { mixinStruct }
-}
+  if (currentPreNonceBigInt !== preNonceBigInt) {
+    allSecretZeroHexSet = new Set<string>()
 
-async function verifyOrThrow(secretBase16Array: string[]) {
-  const { mixinStruct } = await init
-
-  let secretsBase16 = ""
-
-  for (const secretBase16 of secretBase16Array) {
-    if (secretBase16Set.has(secretBase16))
-      continue
-    secretBase16Set.add(secretBase16)
-    secretsBase16 += secretBase16
+    preNonceBigInt = currentPreNonceBigInt
+    preNonceBase16 = preNonceBigInt.toString(16).padStart(64, "0")
+    preNonceMemory = base16_decode_mixed(preNonceBase16)
   }
 
-  const secretsMemory = base16_decode_mixed(secretsBase16)
+  const nonceMemory = keccak256(preNonceMemory)
 
-  const totalMemory = mixinStruct.verify_secrets(secretsMemory)
-  const totalBase16 = base16_encode_lower(totalMemory)
-  const totalZeroHex = `0x${totalBase16}`
-  const totalBigInt = BigInt(totalZeroHex)
+  const mixinStruct = new NetworkMixin(chainIdMemory, contractMemory, receiverMemory, nonceMemory)
 
-  return totalBigInt
+  const filteredSecretZeroHexArray = secretZeroHexArray.filter(x => !allSecretZeroHexSet.has(x))
+  const filteredSecretsBase16 = filteredSecretZeroHexArray.reduce((p, x) => p + x.slice(2), ``)
+  const filteredSecretsMemory = base16_decode_mixed(filteredSecretsBase16)
+
+  const valueMemory = mixinStruct.verify_secrets(filteredSecretsMemory)
+  const valueBase16 = base16_encode_lower(valueMemory)
+  const valueZeroHex = `0x${valueBase16}`
+  const valueBigInt = BigInt(valueZeroHex)
+
+  return valueBigInt
 }
-
-const chainIdNumber = 1
-const contractZeroHex = "0xFf61BB11819455d58944A83e44b87E80CFC19eA2"
-const receiverZeroHex = "0x39dfd20386F5d17eBa42763606B8c704FcDd1c1D"
-
-const init = initOrThrow(chainIdNumber, contractZeroHex, receiverZeroHex)
-
-init.catch(() => { })
 
 export default async function GET(request: NextApiRequest, response: NextApiResponse) {
   const data = request.headers["x-net-secrets"]
@@ -68,7 +65,7 @@ export default async function GET(request: NextApiRequest, response: NextApiResp
 
   const amount = await verifyOrThrow(secrets)
 
-  if (amount < (10n ** 5n))
+  if (amount < (2n ** 16n))
     return response.status(401).send("Unauthorized")
 
   return response.status(200).send(amount.toString())
