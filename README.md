@@ -11,7 +11,7 @@ This is an example Next.js website using Network to monetize its API
 
 The client sends a regular REST request to the server, but with an extra `x-net-secrets` header containing Network secrets.
 
-Of course, the connection needs to be secure (local or using HTTPS) to avoid an attacker from stealing the secrets.
+Of course, the connection needs to be secure (local or using HTTPS) to prevent an attacker from stealing the secrets.
 
 Since the API and the website are tied, then chainID, contract address, and receiver address are statically known on both sides.
 
