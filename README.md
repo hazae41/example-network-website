@@ -1,4 +1,4 @@
-# Example Website with Network API
+# Example website with Network API
 
 This is an example Next.js website using Network to monetize its API
 
