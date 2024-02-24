@@ -82,20 +82,25 @@ function handle(request: Request, secrets: string[]) {
 }
 ```
 
-That means if your server had enough secrets during a block-time (nonce-time) to have an higher profit than gas fees, then they can be claimed.
+That means if your server had enough secrets during a nonce-time (block-time) to have a higher profit than gas fees, then they can be claimed. You have to make sure that you pay enough gas to include your transaction in the next block to avoid replacing transactions because of backpressure.
 
 ```tsx
-if (allSecrets.size > minSecretsPerTx) {
-  claim(currentNonce, [...allSecrets])
+if (currentNonce !== previousNonce) {
+  previousNonce = currentNonce
+
+  const gasPrice = await fetchGasPrice("instant")
+  const gasLimit = await estimate(currentNonce, [...allSecrets])
+
+  if ((totalValue * tokenPrice) > (gasLimit * gasPrice))
+    claim(currentNonce, [...allSecrets])
+
+  // Then clear memory
+  allSecrets = new Set<string>()
+  totalValue = 0n
 }
 ```
 
-You have to make sure that you pay enough gas to include your transaction in the next block to avoid backpressure, you also have to check every time if it's worth it depending on gas price.
-
-```tsx
-if ((value * tokenPrice) < (gasLimit * gasPrice))
-  return
-```
+Of course this can be optimized to avoid fetching gasLimit and gasPrice every time.
 
 If you use serverless functions, you also have to make sure they live long enough to claim at least one block (the lifespan is ~15 seconds on Vercel so it should work fine there).
 
