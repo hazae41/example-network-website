@@ -2,11 +2,34 @@
 
 This is an example Next.js website using Network to monetize its API
 
-### Constraints
+## Constraints
+
 - Only short-term in-memory state
 - Compatible with serverless functions
 
-### Protocol
+## Getting started
+
+### Environment variables
+
+#### `PRIVATE_KEY_ZERO_HEX` (required)
+
+Your Ethereum private key as a 0x-prefixed base16 string
+
+e.g. `0x35609a4c7e0334d76e15d107c52ee4e9beab1199556cef78fd8624351c0e2c8c`
+
+#### `CONTRACT_ZERO_HEX` (optional)
+
+The contract address as a 0x-prefixed base16 string
+
+e.g. `0xF1eC047cbd662607BBDE9Badd572cf0A23E1130B`
+
+#### `CHAIN_ID` (optional)
+
+The chain ID as a number or as a 0x-prefixed base16 string
+
+e.g. `100` or `0x64`
+
+## Protocol
 
 The client sends a regular REST request to the server, but with an extra `x-net-secrets` header containing Network secrets.
 
