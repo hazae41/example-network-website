@@ -9,8 +9,6 @@ This is an example Next.js website using Network to monetize its API
 
 ### Protocol
 
-The protocol is fully non-interactive and doesn't require any long-term storage.
-
 The client sends a regular REST request to the server, but with an extra `x-net-secrets` header containing Network secrets.
 
 Of course, the connection needs to be secure (local or using HTTPS) to avoid an attacker from stealing the secrets.
