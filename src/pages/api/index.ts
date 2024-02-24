@@ -1,72 +1,118 @@
 import "@hazae41/symbol-dispose-polyfill";
 
-import { NetworkMixin, base16_decode_mixed, base16_encode_lower, initBundledOnce, keccak256 } from "@hazae41/network-bundle";
+import Abi from "@/mods/abi/token.abi.json";
+import { Memory, NetworkMixin, base16_decode_mixed, base16_encode_lower, initBundledOnce } from "@hazae41/network-bundle";
+import * as Ethers from "ethers";
 import { NextApiRequest, NextApiResponse } from "next";
 
 await initBundledOnce()
 
+const chainIdString = process.env.CHAIN_ID!
+const contractZeroHex = process.env.CONTRACT_ZERO_HEX!
+const privateKeyZeroHex = process.env.PRIVATE_KEY_ZERO_HEX!
+
+const provider = new Ethers.JsonRpcProvider("https://gnosis-rpc.publicnode.com")
+const wallet = new Ethers.Wallet(privateKeyZeroHex).connect(provider)
+const contract = new Ethers.Contract(contractZeroHex, Abi, wallet)
+
+const minimumBigInt = 2n ** 10n
+const minimumBase16 = minimumBigInt.toString(16).padStart(64, "0")
+const minimumZeroHex = `0x${minimumBase16}`
+
+const chainIdNumber = Number(chainIdString)
+const chainIdBase16 = chainIdNumber.toString(16).padStart(64, "0")
+const chainIdMemory = base16_decode_mixed(chainIdBase16)
+
+const contractBase16 = contractZeroHex.slice(2).padStart(64, "0")
+const contractMemory = base16_decode_mixed(contractBase16)
+
+const receiverZeroHex = wallet.address
+const receiverBase16 = receiverZeroHex.slice(2).padStart(64, "0")
+const receiverMemory = base16_decode_mixed(receiverBase16)
+
+let nonceBytes = crypto.getRandomValues(new Uint8Array(32))
+let nonceMemory = new Memory(nonceBytes)
+let nonceBase16 = base16_encode_lower(nonceMemory)
+let nonceZeroHex = `0x${nonceBase16}`
+
 let allSecretZeroHexSet = new Set<string>()
+let allSecretBalanceBigInt = 0n
 
-let preNonceBigInt = BigInt(Date.now()) / (1000n * 60n)
-let preNonceBase16 = preNonceBigInt.toString(16).padStart(64, "0")
-let preNonceMemory = base16_decode_mixed(preNonceBase16)
+let mixinStruct = new NetworkMixin(chainIdMemory, contractMemory, receiverMemory, nonceMemory)
 
-async function verifyOrThrow(secretZeroHexArray: string[]) {
-  const chainIdNumber = 100
-  const chainIdBase16 = chainIdNumber.toString(16).padStart(64, "0")
-  const chainIdMemory = base16_decode_mixed(chainIdBase16)
-
-  const contractZeroHex = "0xF1eC047cbd662607BBDE9Badd572cf0A23E1130B"
-  const contractBase16 = contractZeroHex.slice(2).padStart(64, "0")
-  const contractMemory = base16_decode_mixed(contractBase16)
-
-  const receiverZeroHex = "0xFF4BdfEbbf877627E02515B60B709F3Faf899884"
-  const receiverBase16 = receiverZeroHex.slice(2).padStart(64, "0")
-  const receiverMemory = base16_decode_mixed(receiverBase16)
-
-  const currentPreNonceBigInt = BigInt(Date.now()) / (1000n * 60n)
-
-  if (currentPreNonceBigInt !== preNonceBigInt) {
-    allSecretZeroHexSet = new Set<string>()
-
-    preNonceBigInt = currentPreNonceBigInt
-    preNonceBase16 = preNonceBigInt.toString(16).padStart(64, "0")
-    preNonceMemory = base16_decode_mixed(preNonceBase16)
+export default async function handle(request: NextApiRequest, response: NextApiResponse) {
+  if (request.method === "OPTIONS") {
+    response.status(200)
+      .setHeader("x-net-chain", chainIdString)
+      .setHeader("x-net-contract", contractZeroHex)
+      .setHeader("x-net-receiver", receiverZeroHex)
+      .setHeader("x-net-nonce", nonceZeroHex)
+      .setHeader("x-net-minimum", minimumZeroHex)
+      .end()
+    return
   }
 
-  const nonceMemory = keccak256(preNonceMemory)
+  if (request.method === "GET") {
+    const data = request.headers["x-net-secrets"]
 
-  const mixinStruct = new NetworkMixin(chainIdMemory, contractMemory, receiverMemory, nonceMemory)
+    if (typeof data !== "string") {
+      response.status(400).send("Bad Request")
+      return
+    }
 
-  const filteredSecretZeroHexArray = secretZeroHexArray.filter(x => !allSecretZeroHexSet.has(x))
-  const filteredSecretsBase16 = filteredSecretZeroHexArray.reduce((p, x) => p + x.slice(2), ``)
-  const filteredSecretsMemory = base16_decode_mixed(filteredSecretsBase16)
+    const secretZeroHexArray = JSON.parse(data)
 
-  const valueMemory = mixinStruct.verify_secrets(filteredSecretsMemory)
-  const valueBase16 = base16_encode_lower(valueMemory)
-  const valueZeroHex = `0x${valueBase16}`
-  const valueBigInt = BigInt(valueZeroHex)
+    if (!Array.isArray(secretZeroHexArray)) {
+      response.status(400).send("Bad Request")
+      return
+    }
 
-  return valueBigInt
-}
+    if (secretZeroHexArray.length > 10) {
+      response.status(400).send("Bad Request")
+      return
+    }
 
-export default async function GET(request: NextApiRequest, response: NextApiResponse) {
-  const data = request.headers["x-net-secrets"]
+    const filteredSecretZeroHexArray = secretZeroHexArray.filter(x => !allSecretZeroHexSet.has(x))
+    const filteredSecretsBase16 = filteredSecretZeroHexArray.reduce((p, x) => p + x.slice(2), ``)
+    const filteredSecretsMemory = base16_decode_mixed(filteredSecretsBase16)
 
-  if (typeof data !== "string")
-    return response.status(400).send("Bad Request")
+    const valueMemory = mixinStruct.verify_secrets(filteredSecretsMemory)
+    const valueBase16 = base16_encode_lower(valueMemory)
+    const valueZeroHex = `0x${valueBase16}`
+    const valueBigInt = BigInt(valueZeroHex)
 
-  const secrets = JSON.parse(data)
+    if (valueBigInt < minimumBigInt) {
+      response.status(401).send("Unauthorized")
+      return
+    }
 
-  if (!Array.isArray(secrets))
-    return response.status(400).send("Bad Request")
-  if (secrets.length > 10)
-    return response.status(400).send("Bad Request")
+    for (const secretZeroHex of filteredSecretZeroHexArray)
+      allSecretZeroHexSet.add(secretZeroHex)
 
-  const amount = await verifyOrThrow(secrets)
+    console.log(`Received ${valueBigInt.toString()} wei`)
 
-  if (amount < (2n ** 16n))
-    return response.status(401).send("Unauthorized")
+    allSecretBalanceBigInt += valueBigInt
 
-  return response.status(200).send(amount.toString())
+    if (allSecretZeroHexSet.size > 640) {
+      console.log(`Claiming ${allSecretBalanceBigInt.toString()} wei`)
+
+      contract.claim(nonceZeroHex, [...allSecretZeroHexSet]).catch(console.error)
+
+      allSecretZeroHexSet = new Set<string>()
+      allSecretBalanceBigInt = 0n
+
+      nonceBytes = crypto.getRandomValues(new Uint8Array(32))
+      nonceMemory = new Memory(nonceBytes)
+      nonceBase16 = base16_encode_lower(nonceMemory)
+      nonceZeroHex = `0x${nonceBase16}`
+
+      mixinStruct = new NetworkMixin(chainIdMemory, contractMemory, receiverMemory, nonceMemory)
+    }
+
+    response.status(200).send(valueBigInt.toString())
+    return
+  }
+
+  response.status(404).send("Not Found")
+  return
 }

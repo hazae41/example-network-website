@@ -57,7 +57,7 @@ async function compileWorker(config, options) {
     resolveLoader: config.resolveLoader,
     module: config.module,
     plugins: config.plugins,
-    entry: "./src/worker/index.ts",
+    entry: "./src/mods/worker/index.ts",
     output: {
       path: path.join(process.cwd(), ".webpack"),
       filename: "worker.js"

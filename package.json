@@ -11,10 +11,11 @@
   "dependencies": {
     "@hazae41/base16": "^1.0.17",
     "@hazae41/binary": "^1.3.4",
-    "@hazae41/cubane": "^0.1.14",
+    "@hazae41/future": "^1.0.3",
     "@hazae41/keccak256": "^1.0.8",
     "@hazae41/network-bundle": "^1.1.0",
     "@hazae41/symbol-dispose-polyfill": "^1.0.2",
+    "ethers": "^6.11.1",
     "next": "14.1.0",
     "react": "^18",
     "react-dom": "^18"
