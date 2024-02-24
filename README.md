@@ -52,7 +52,7 @@ We know the timestamp of some block (`1708787955000`) and substract it from the 
 const nonce = keccak256((BigInt(Date.now()) - 1708787955000n) / (1000n * 5n))
 ```
 
-With this formula, the nonce is automatically rotated on every new block, and so can the memory.
+With this formula, the nonce is automatically rotated on every new block, and so can the in-memory state.
 
 ```tsx
 let allSecrets = new Set<string>()
@@ -64,6 +64,7 @@ function handle(request: Request, secrets: string[]) {
 
   // If nonce rotated (new block)
   if (currentNonce !== previousNonce) {
+    previousNonce = currentNonce
     // Then clear memory
     allSecrets = new Set<string>()
   }  
