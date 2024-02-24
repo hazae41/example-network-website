@@ -84,7 +84,7 @@ function handle(request: Request, secrets: string[]) {
 That means if your server had enough secrets during a block-time (nonce-time) to have an higher profit than gas fees, then they can be claimed.
 
 ```tsx
-if (allSecrets.size === minSecretsPerBlock) {
+if (allSecrets.size > minSecretsPerTx) {
   claim(currentNonce, [...allSecrets])
 }
 ```
