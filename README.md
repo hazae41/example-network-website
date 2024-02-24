@@ -12,7 +12,9 @@ The client sends a regular REST request to the server, but with an extra `x-net-
 
 Of course, the connection needs to be secure (local or using HTTPS) to prevent an attacker from stealing the secrets.
 
-The whole process only requires short-lived state to prevent replay attack on a nonce.
+The client retrieves the Network parameters using an `OPTIONS` request at the same endpoint it wants to deal with.
+
+The whole process only requires short-lived state to prevent replay attack.
 
 ```tsx
 const allSecrets = new Set<string>()
