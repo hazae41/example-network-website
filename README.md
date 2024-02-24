@@ -91,6 +91,11 @@ if (allSecrets.size > minSecretsPerTx) {
 
 You have to make sure that you pay enough gas to include your transaction in the next block to avoid backpressure, you also have to check every time if it's worth it depending on gas price.
 
+```tsx
+if ((value * tokenPrice) < (gasLimit * gasPrice))
+  return
+```
+
 If you use serverless functions, you also have to make sure they live long enough to claim at least one block (the lifespan is ~15 seconds on Vercel so it should work fine there).
 
 A malicious client could theorically try to replay secrets if they are sent between two lifes of a serverless function within the same block-time
