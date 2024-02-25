@@ -1,6 +1,6 @@
 # Example website with Network API
 
-This is an example Next.js website using Network to monetize its API
+This is an example Next.js website using [Network](https://github.com/stars/hazae41/lists/network) to monetize its API
 
 ## Constraints
 
