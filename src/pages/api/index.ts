@@ -92,7 +92,7 @@ export default async function handle(request: NextApiRequest, response: NextApiR
     pendingSecretZeroHexArray.push(secretZeroHex)
     pendingTotalValueBigInt += valueBigInt
 
-    if (allSecretZeroHexSet.size > 640) {
+    if (pendingSecretZeroHexArray.length > 640) {
       console.log(`Claiming ${pendingTotalValueBigInt.toString()} wei`)
       contract.claim(nonceZeroHex, pendingSecretZeroHexArray).catch(console.error)
 
