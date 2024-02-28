@@ -27,15 +27,11 @@ async function generateOrThrow(params: NetworkParams) {
 
   const generatedStruct = mixinStruct.generate(minimumMemory)
 
-  const secretsMemory = generatedStruct.encode_secrets()
-  const secretsBase16 = base16_encode_lower(secretsMemory)
+  const secretMemory = generatedStruct.to_secret()
+  const secretBase16 = base16_encode_lower(secretMemory)
+  const secretZeroHex = `0x${secretBase16}`
 
-  const secretZeroHexArray = new Array<string>()
-
-  for (let i = 0; i < secretsBase16.length; i += 64)
-    secretZeroHexArray.push(`0x${secretsBase16.slice(i, i + 64)}`)
-
-  return secretZeroHexArray
+  return secretZeroHex
 }
 
 self.addEventListener("message", async (e: MessageEvent<NetworkParams>) => self.postMessage(await generateOrThrow(e.data)))

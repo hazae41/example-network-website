@@ -3,10 +3,10 @@ import { Future } from "@hazae41/future";
 import { useCallback, useEffect, useState } from "react";
 
 export async function generateOrThrow(params: NetworkParams) {
-  const future = new Future<string[]>()
+  const future = new Future<string>()
   const worker = new Worker("/worker.js")
 
-  const onMessage = (e: MessageEvent<string[]>) => {
+  const onMessage = (e: MessageEvent<string>) => {
     future.resolve(e.data)
   }
 
@@ -58,10 +58,10 @@ export default function Home() {
         throw new Error("Minimum too high")
 
       const start = Date.now()
-      const secretZeroHexArray = await generateOrThrow(params)
+      const secretZeroHex = await generateOrThrow(params)
       const end = Date.now()
 
-      const headers = { "x-net-secrets": JSON.stringify(secretZeroHexArray) }
+      const headers = { "x-net-secret": secretZeroHex }
       const response2 = await fetch("/api", { headers })
 
       if (!response2.ok)
